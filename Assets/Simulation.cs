@@ -1,4 +1,3 @@
-using System;
 using UnityEngine;
 using Random = System.Random;
 
@@ -7,12 +6,14 @@ public class Simulation : MonoBehaviour
     public readonly struct Agent
     {
         public Vector2 Position { get; }
+        public float Angle { get; }
 
-        public static int Stride => System.Runtime.InteropServices.Marshal.SizeOf(typeof(Agent));
+        public static int SizeOf => System.Runtime.InteropServices.Marshal.SizeOf(typeof(Agent));
 
-        public Agent(Vector2 position)
+        public Agent(Vector2 position, float angle)
         {
             Position = position;
+            Angle = angle;
         }
     }
 
@@ -25,16 +26,23 @@ public class Simulation : MonoBehaviour
         _kernelIndex = _computeShader.FindKernel("CSMain");
         _computeShader.SetTexture(_kernelIndex, "Result", _renderTexture);
         _outputRenderer.material.mainTexture = _renderTexture;
-    }
 
-    protected void Update()
-    {
+
         if (_agents == null || _agents.Length != _agentsCount)
         {
             InitializeAgentsBuffer();
         }
-
+        _computeShader.SetFloat("width", _width);
+        _computeShader.SetFloat("height", _height);
+        _computeShader.SetFloat("deltaTime", Time.fixedDeltaTime);
         _computeShader.Dispatch(_kernelIndex, _width, _height, _agents.Length);
+    }
+
+    protected void Update()
+    {
+
+
+
     }
 
     private void InitializeAgentsBuffer()
@@ -43,12 +51,14 @@ public class Simulation : MonoBehaviour
 
         for (int i = 0; i < _agentsCount; i++)
         {
-            _agents[i] = new Agent(GetRandomPosition());
+            _agents[i] = new Agent(GetRandomPosition(), (float)_random.NextDouble() * 2 * Mathf.PI);
         }
 
-        var buffer = new ComputeBuffer(_agents.Length, Agent.Stride);
-        buffer.SetData(_agents);
-        _computeShader.SetBuffer(_kernelIndex, "agents", buffer);
+        _buffer?.Dispose();
+
+        _buffer = new ComputeBuffer(_agents.Length, Agent.SizeOf);
+        _buffer.SetData(_agents);
+        _computeShader.SetBuffer(_kernelIndex, "agents", _buffer);
     }
 
     [SerializeField]
@@ -73,11 +83,17 @@ public class Simulation : MonoBehaviour
     private readonly Random _random = new Random();
 
     private Agent[] _agents;
+    private ComputeBuffer _buffer;
 
-    private Vector2 GetRandomPosition()
+    private Vector2 GetRandomVecNormalized() => new Vector2(RandomSign() * (float)_random.NextDouble(),
+        RandomSign() * (float)_random.NextDouble());
+
+    float RandomSign() => (float)_random.NextDouble() > 0.5f ? 1 : -1;
+
+    private Vector2Int GetRandomPosition()
     {
         int x = _random.Next(0, _width);
         int y = _random.Next(0, _height);
-        return new Vector2(x, y);
+        return new Vector2Int(x, y);
     }
 }

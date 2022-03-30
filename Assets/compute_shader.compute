@@ -8,12 +8,14 @@ RWTexture2D<float4> Result;
 struct Agent
 {
     float2 position;
-    float2 dir;
+    float angle;
 };
 
 RWStructuredBuffer<Agent> agents;
-float2 textureSize;
+float width;
+float height;
 float deltaTime;
+const float pi = 3.14159265359;
 
 // source: www.cs.ubc.ca/~rbridson/docs/schechter-sca08-turbulence.pdf
 uint hash(uint seed)
@@ -44,38 +46,53 @@ float scaleTo01(uint value)
     return value / 4294967295.0;
 }
 
-float2 get_value(float2 currentValue, float when, float newValue)
+float2 setByResultMultiplicationWhen(float2 currentValue, float when, float2 newValue)
 {
-    return (1 + newValue * when - 1 * when) / (1 + currentValue * when - 1 * when);
+    return (1 + when * (newValue - 1)) / (1 + when * (currentValue - 1));
+}
+
+float setByResultMultiplicationWhen(float currentValue, float when, float newValue)
+{
+    return (1 + when * (newValue - 1)) / (1 + when * (currentValue - 1));
 }
 
 [numthreads(8,8,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
-    // TODO: insert actual code here!
+    // TODO: uncomment, fix hash function
 
-    Agent agent = agents[id.z];
+    // Agent agent = agents[id.z];
+    //
+    // float dir = float2(cos(agent.angle), sin(agent.angle));
+    // float2 newPos = agent.position + dir * deltaTime;
+    // uint seed = newPos.y * width + newPos.x * height + hash(id.x + deltaTime * 1000000);
+    // // uint random = hash(pos.y * width + pos.x + hash(id.x + time * 100000));
+    //
+    // uint random = hash(seed);
+    // float random01 = scaleTo01(random);
+    // float randomAngle = random01 * 2 *pi;
+    //
+    // if (newPos.x > width || newPos.x < 0 || newPos.y < 0 || newPos.y > height)
+    // {
+    //     agent.angle = randomAngle;
+    // }
+    //
+    // // agent.angle *= setByResultMultiplicationWhen(agent.angle, when_gt(newPos.x, textureSize.x), randomAngle);
+    // // agent.angle *= setByResultMultiplicationWhen(agent.angle, when_gt(newPos.y, textureSize.y), randomAngle);
+    // // agent.angle *= setByResultMultiplicationWhen(agent.angle, when_lt(newPos.x, 0), randomAngle);
+    // // agent.angle *= setByResultMultiplicationWhen(agent.angle, when_lt(newPos.y, 0), randomAngle);
+    //
+    // newPos.x = min(width - 1, max(0, newPos.x));
+    // newPos.y = min(height - 1, max(0, newPos.y));
+    // agent.position = newPos;
+    // agents[id.z] = agent;
 
-    float2 newPos = agent.position + agent.dir * deltaTime;
-    agent.position = newPos;
+    if (id.x > width || id.x < 0 || id.y < 0 || id.y > height)
+    {
+        return;
+    }
 
+    int index = id.y + width + id.x;
 
-    float seed = newPos.y * textureSize.x + textureSize.y + hash(id.x + deltaTime * 1000000);
-    uint random = hash(seed);
-    float sign = 1;
-    sign = -1 * when_gt(random, 4294967295.0 / 2.0);
-
-    float newDir = sign * scaleTo01(random);
-    agent.dir *= get_value(agent.dir, when_gt(newPos.x, textureSize.x), newDir);
-    // agent.dir *= 1 + newDir * when_gt(newPos.y, textureSize.y) - 1 * when_gt(newPos.y, textureSize.y);
-    // agent.dir *= 1 + newDir * when_lt(newPos.x, 0) - 1 * when_lt(newPos.x, 0);
-    // agent.dir *=  1 + newDir * when_lt(newPos.y, 0) - 1 * when_lt(newPos.y, 0);
-
-    //if (agent.position.x > textureSize.x)
-
-    agents[id.z] = agent;
-
-
-
-    Result[agent.position] = float4(1, 1, 0, 0.0);
+    Result[id.xy] = hash(index) / 4294967295.0;
 }

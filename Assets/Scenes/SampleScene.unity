@@ -333,7 +333,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _width: 256
-  _height: 256
+  _height: 128
   _agentsCount: 10
   _computeShader: {fileID: 7200000, guid: f9f5cc8174d6a7d40a4f1fc323fe442c, type: 3}
   _outputRenderer: {fileID: 88625535}
