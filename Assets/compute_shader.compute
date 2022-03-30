@@ -1,0 +1,81 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+RWTexture2D<float4> Result;
+
+struct Agent
+{
+    float2 position;
+    float2 dir;
+};
+
+RWStructuredBuffer<Agent> agents;
+float2 textureSize;
+float deltaTime;
+
+// source: www.cs.ubc.ca/~rbridson/docs/schechter-sca08-turbulence.pdf
+uint hash(uint seed)
+{
+    seed ^= 2747636419u;
+    seed *= 2654435769u;
+    seed ^= seed >> 16;
+    seed *= 2654435769u;
+    seed ^= seed >> 16;
+    seed *= 2654435769u;
+    return seed;
+}
+
+float when_gt(float x, float y) {
+    return max(sign(x - y), 0.0);
+}
+
+float2 when_gt(float2 x, float2 y) {
+    return max(sign(x - y), 0.0);
+}
+
+float2 when_lt(float2 x, float2 y) {
+    return max(sign(y - x), 0.0);
+}
+
+float scaleTo01(uint value)
+{
+    return value / 4294967295.0;
+}
+
+float2 get_value(float2 currentValue, float when, float newValue)
+{
+    return (1 + newValue * when - 1 * when) / (1 + currentValue * when - 1 * when);
+}
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    // TODO: insert actual code here!
+
+    Agent agent = agents[id.z];
+
+    float2 newPos = agent.position + agent.dir * deltaTime;
+    agent.position = newPos;
+
+
+    float seed = newPos.y * textureSize.x + textureSize.y + hash(id.x + deltaTime * 1000000);
+    uint random = hash(seed);
+    float sign = 1;
+    sign = -1 * when_gt(random, 4294967295.0 / 2.0);
+
+    float newDir = sign * scaleTo01(random);
+    agent.dir *= get_value(agent.dir, when_gt(newPos.x, textureSize.x), newDir);
+    // agent.dir *= 1 + newDir * when_gt(newPos.y, textureSize.y) - 1 * when_gt(newPos.y, textureSize.y);
+    // agent.dir *= 1 + newDir * when_lt(newPos.x, 0) - 1 * when_lt(newPos.x, 0);
+    // agent.dir *=  1 + newDir * when_lt(newPos.y, 0) - 1 * when_lt(newPos.y, 0);
+
+    //if (agent.position.x > textureSize.x)
+
+    agents[id.z] = agent;
+
+
+
+    Result[agent.position] = float4(1, 1, 0, 0.0);
+}
