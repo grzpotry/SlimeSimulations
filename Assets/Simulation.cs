@@ -34,15 +34,12 @@ public class Simulation : MonoBehaviour
         }
         _computeShader.SetFloat("width", _width);
         _computeShader.SetFloat("height", _height);
-        _computeShader.SetFloat("deltaTime", Time.fixedDeltaTime);
-        _computeShader.Dispatch(_kernelIndex, _width, _height, _agents.Length);
     }
 
     protected void Update()
     {
-
-
-
+        _computeShader.SetFloat("deltaTime", Time.fixedDeltaTime);
+        _computeShader.Dispatch(_kernelIndex, _width, _height, _agents.Length);
     }
 
     private void InitializeAgentsBuffer()

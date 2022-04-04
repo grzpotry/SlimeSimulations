@@ -92,7 +92,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
         return;
     }
 
-    int index = id.y + width + id.x;
+    int index = id.y * width + id.x;
 
     Result[id.xy] = hash(index) / 4294967295.0;
 }
