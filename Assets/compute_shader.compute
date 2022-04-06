@@ -15,7 +15,8 @@ RWStructuredBuffer<Agent> agents;
 float width;
 float height;
 float deltaTime;
-const float pi = 3.14159265359;
+float time;
+static float pi = 3.1415;
 
 // source: www.cs.ubc.ca/~rbridson/docs/schechter-sca08-turbulence.pdf
 uint hash(uint seed)
@@ -59,40 +60,59 @@ float setByResultMultiplicationWhen(float currentValue, float when, float newVal
 [numthreads(8,8,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
-    // TODO: uncomment, fix hash function
+    Agent agent = agents[id.x];
 
-    // Agent agent = agents[id.z];
-    //
-    // float dir = float2(cos(agent.angle), sin(agent.angle));
-    // float2 newPos = agent.position + dir * deltaTime;
-    // uint seed = newPos.y * width + newPos.x * height + hash(id.x + deltaTime * 1000000);
-    // // uint random = hash(pos.y * width + pos.x + hash(id.x + time * 100000));
-    //
-    // uint random = hash(seed);
-    // float random01 = scaleTo01(random);
-    // float randomAngle = random01 * 2 *pi;
-    //
-    // if (newPos.x > width || newPos.x < 0 || newPos.y < 0 || newPos.y > height)
-    // {
-    //     agent.angle = randomAngle;
-    // }
-    //
-    // // agent.angle *= setByResultMultiplicationWhen(agent.angle, when_gt(newPos.x, textureSize.x), randomAngle);
-    // // agent.angle *= setByResultMultiplicationWhen(agent.angle, when_gt(newPos.y, textureSize.y), randomAngle);
-    // // agent.angle *= setByResultMultiplicationWhen(agent.angle, when_lt(newPos.x, 0), randomAngle);
-    // // agent.angle *= setByResultMultiplicationWhen(agent.angle, when_lt(newPos.y, 0), randomAngle);
-    //
+    uint seed = (agent.position.y * width + agent.position.x) + hash(id.x + time * 100000);
+
+    uint random = hash(seed);
+    float random01 = scaleTo01(random);
+    float randomAngle = random01 * 2 *pi;
+
+    //if (newPos.x > width || newPos.x < 0 || newPos.y < 0 || newPos.y > height)
+
+
+    float2 dir = float2(cos(randomAngle), sin(randomAngle));
+    float2 newPos = agent.position + dir * deltaTime;
+    // agent.angle *= setByResultMultiplicationWhen(agent.angle, when_gt(newPos.x, textureSize.x), randomAngle);
+    // agent.angle *= setByResultMultiplicationWhen(agent.angle, when_gt(newPos.y, textureSize.y), randomAngle);
+    // agent.angle *= setByResultMultiplicationWhen(agent.angle, when_lt(newPos.x, 0), randomAngle);
+    // agent.angle *= setByResultMultiplicationWhen(agent.angle, when_lt(newPos.y, 0), randomAngle);
+
     // newPos.x = min(width - 1, max(0, newPos.x));
     // newPos.y = min(height - 1, max(0, newPos.y));
-    // agent.position = newPos;
-    // agents[id.z] = agent;
+    agent.angle = randomAngle;
+    //agent.position = newPos;
+    agents[id.x] = agent;
 
-    if (id.x > width || id.x < 0 || id.y < 0 || id.y > height)
+    // if (id.x > width || id.x < 0 || id.y < 0 || id.y > height)
+    // {
+    //     return;
+    // }
+
+
+    float angleColor = random01 * 255;
+    int index = angleColor * width + angleColor;
+
+    if (angleColor < 80)
     {
-        return;
+        Result[newPos] = float4(angleColor,0,0,255);
+    }
+    else if (angleColor > 80 && angleColor < 160)
+    {
+        Result[newPos] = float4(0,angleColor,0,255);
+    }
+    else
+    {
+        Result[newPos] = float4(0,0,angleColor,255);
     }
 
-    int index = id.y * width + id.x;
 
-    Result[id.xy] = hash(index) / 4294967295.0;
+}
+
+#pragma kernel Clear
+
+[numthreads(8,8,1)]
+void Clear (uint3 id : SV_DispatchThreadID)
+{
+    Result[id.xy] = float4(0,0,0,0);
 }

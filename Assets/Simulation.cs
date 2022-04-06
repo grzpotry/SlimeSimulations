@@ -17,14 +17,16 @@ public class Simulation : MonoBehaviour
         }
     }
 
-    protected void Start()
+    protected void Awake()
     {
         _renderTexture = new RenderTexture(_width, _height, 24);
         _renderTexture.enableRandomWrite = true;
         _renderTexture.Create();
 
-        _kernelIndex = _computeShader.FindKernel("CSMain");
-        _computeShader.SetTexture(_kernelIndex, "Result", _renderTexture);
+        _mainKernelIndex = _computeShader.FindKernel("CSMain");
+        _clearKernelIndex = _computeShader.FindKernel("Clear");
+        _computeShader.SetTexture(_mainKernelIndex, "Result", _renderTexture);
+        _computeShader.SetTexture(_clearKernelIndex, "Result", _renderTexture);
         _outputRenderer.material.mainTexture = _renderTexture;
 
 
@@ -34,12 +36,21 @@ public class Simulation : MonoBehaviour
         }
         _computeShader.SetFloat("width", _width);
         _computeShader.SetFloat("height", _height);
+
+
     }
 
-    protected void Update()
+    protected void Update()//todo: Fixed
     {
-        _computeShader.SetFloat("deltaTime", Time.fixedDeltaTime);
-        _computeShader.Dispatch(_kernelIndex, _width, _height, _agents.Length);
+        _computeShader.Dispatch(_clearKernelIndex, _width, _height, _agents.Length);
+
+        for (int i = 0; i < _stepsPerFrame; i++)
+        {
+            _computeShader.SetFloat("deltaTime", Time.fixedDeltaTime);
+            _computeShader.SetFloat("time", Time.time);
+            _computeShader.Dispatch(_mainKernelIndex, _agents.Length, 1, 1);
+        }
+
     }
 
     private void InitializeAgentsBuffer()
@@ -55,11 +66,14 @@ public class Simulation : MonoBehaviour
 
         _buffer = new ComputeBuffer(_agents.Length, Agent.SizeOf);
         _buffer.SetData(_agents);
-        _computeShader.SetBuffer(_kernelIndex, "agents", _buffer);
+        _computeShader.SetBuffer(_mainKernelIndex, "agents", _buffer);
     }
 
     [SerializeField]
     private int _width = 256;
+
+    [SerializeField]
+    private int _stepsPerFrame = 1;
 
     [SerializeField]
     private int _height = 256;
@@ -76,7 +90,8 @@ public class Simulation : MonoBehaviour
     [SerializeField]
     private RenderTexture _renderTexture;
 
-    private int _kernelIndex;
+    private int _mainKernelIndex;
+    private int _clearKernelIndex;
     private readonly Random _random = new Random();
 
     private Agent[] _agents;
