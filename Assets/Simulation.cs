@@ -23,12 +23,19 @@ public class Simulation : MonoBehaviour
         _renderTexture.enableRandomWrite = true;
         _renderTexture.Create();
 
-        _mainKernelIndex = _computeShader.FindKernel("CSMain");
-        _evaporateKernelIndex = _computeShader.FindKernel("EvaporateTrail");
+        _mainKernelIndex = _computeShader.FindKernel("UpdateMovement");
         _computeShader.SetTexture(_mainKernelIndex, "Result", _renderTexture);
-        _computeShader.SetTexture(_evaporateKernelIndex, "Result", _renderTexture);
-        _outputRenderer.material.mainTexture = _renderTexture;
 
+        _senseKernelIndex = _computeShader.FindKernel("UpdateSensors");
+        _computeShader.SetTexture(_senseKernelIndex, "Result", _renderTexture);
+
+        _evaporateKernelIndex = _computeShader.FindKernel("EvaporateTrail");
+        _computeShader.SetTexture(_evaporateKernelIndex, "Result", _renderTexture);
+
+        _clearKernelIndex = _computeShader.FindKernel("Clear");
+        _computeShader.SetTexture(_clearKernelIndex, "Result", _renderTexture);
+
+        _outputRenderer.material.mainTexture = _renderTexture;
 
         if (_agents == null || _agents.Length != _agentsCount)
         {
@@ -45,10 +52,16 @@ public class Simulation : MonoBehaviour
         _computeShader.SetFloat("time", Time.time);
         _computeShader.SetFloat("speed", _agentsSpeed);
         _computeShader.SetFloat("evaporationSpeed", _evaporationSpeed);
+        _computeShader.SetInt("sensorWidth", _sensorWidth);
+        _computeShader.SetFloat("sensorAngle", _sensorAngle);
+        _computeShader.SetFloat("sensorOffsetDistance", _sensorOffsetDistance);
+
+        // _computeShader.Dispatch(_clearKernelIndex, _width, _height, 1);
 
         for (int i = 0; i < _stepsPerFrame; i++)
         {
             _computeShader.Dispatch(_mainKernelIndex, _agents.Length, 1, 1);
+            _computeShader.Dispatch(_senseKernelIndex, 1, 1, _agents.Length);
         }
 
         _computeShader.Dispatch(_evaporateKernelIndex, _width, _height, 1);
@@ -68,6 +81,7 @@ public class Simulation : MonoBehaviour
         _buffer = new ComputeBuffer(_agents.Length, Agent.SizeOf);
         _buffer.SetData(_agents);
         _computeShader.SetBuffer(_mainKernelIndex, "agents", _buffer);
+        _computeShader.SetBuffer(_senseKernelIndex, "agents", _buffer);
     }
 
     [SerializeField]
@@ -95,9 +109,20 @@ public class Simulation : MonoBehaviour
     private RenderTexture _renderTexture;
 
     [SerializeField]
+    private float _sensorAngle;
+
+    [SerializeField]
+    private int _sensorWidth;
+
+    [SerializeField]
+    private float _sensorOffsetDistance;
+
+    [SerializeField]
     private float _evaporationSpeed = 1;
 
+    private int _senseKernelIndex;
     private int _mainKernelIndex;
+    private int _clearKernelIndex;
     private int _evaporateKernelIndex;
     private readonly Random _random = new Random();
 
