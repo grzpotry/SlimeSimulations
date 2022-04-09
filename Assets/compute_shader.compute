@@ -16,6 +16,8 @@ float width;
 float height;
 float deltaTime;
 float time;
+float speed;
+float evaporationSpeed;
 static float pi = 3.1415;
 
 // source: www.cs.ubc.ca/~rbridson/docs/schechter-sca08-turbulence.pdf
@@ -62,57 +64,42 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 {
     Agent agent = agents[id.x];
 
-    uint seed = (agent.position.y * width + agent.position.x) + hash(id.x + time * 100000);
+    float2 dir = float2(cos(agent.angle), sin(agent.angle));
+    float2 newPos = agent.position + dir * speed * deltaTime;
 
-    uint random = hash(seed);
-    float random01 = scaleTo01(random);
-    float randomAngle = random01 * 2 *pi;
+    if (newPos.x > width-1 || newPos.x < 0 || newPos.y < 0 || newPos.y > height-1)
+    {
+        uint seed = (agent.position.y * width + agent.position.x) + hash(id.x + time * 100000);
+        uint random = hash(seed);
+        float random01 = scaleTo01(random);
+        float randomAngle = random01 * 2 *pi;
+        agent.angle = randomAngle;
+    }
 
-    //if (newPos.x > width || newPos.x < 0 || newPos.y < 0 || newPos.y > height)
+    newPos.x = min(width - 1, max(0, newPos.x));
+    newPos.y = min(height - 1, max(0, newPos.y));
 
+    agent.position = newPos;
+    agents[id.x] = agent;
+    Result[newPos] = 255;
 
-    float2 dir = float2(cos(randomAngle), sin(randomAngle));
-    float2 newPos = agent.position + dir * deltaTime;
     // agent.angle *= setByResultMultiplicationWhen(agent.angle, when_gt(newPos.x, textureSize.x), randomAngle);
     // agent.angle *= setByResultMultiplicationWhen(agent.angle, when_gt(newPos.y, textureSize.y), randomAngle);
     // agent.angle *= setByResultMultiplicationWhen(agent.angle, when_lt(newPos.x, 0), randomAngle);
     // agent.angle *= setByResultMultiplicationWhen(agent.angle, when_lt(newPos.y, 0), randomAngle);
-
-    // newPos.x = min(width - 1, max(0, newPos.x));
-    // newPos.y = min(height - 1, max(0, newPos.y));
-    agent.angle = randomAngle;
-    //agent.position = newPos;
-    agents[id.x] = agent;
-
-    // if (id.x > width || id.x < 0 || id.y < 0 || id.y > height)
-    // {
-    //     return;
-    // }
-
-
-    float angleColor = random01 * 255;
-    int index = angleColor * width + angleColor;
-
-    if (angleColor < 80)
-    {
-        Result[newPos] = float4(angleColor,0,0,255);
-    }
-    else if (angleColor > 80 && angleColor < 160)
-    {
-        Result[newPos] = float4(0,angleColor,0,255);
-    }
-    else
-    {
-        Result[newPos] = float4(0,0,angleColor,255);
-    }
-
-
 }
 
-#pragma kernel Clear
+#pragma kernel EvaporateTrail
+
+[numthreads(8,8,1)]
+void EvaporateTrail (uint3 id : SV_DispatchThreadID)
+{
+    Result[id.xy] -= evaporationSpeed;
+    Result[id.xy] = max(Result[id.xy], 0);
+}
 
 [numthreads(8,8,1)]
 void Clear (uint3 id : SV_DispatchThreadID)
 {
-    Result[id.xy] = float4(0,0,0,0);
+    //Result[id.xy] = float4(0,0,0,0);
 }

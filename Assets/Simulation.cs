@@ -24,9 +24,9 @@ public class Simulation : MonoBehaviour
         _renderTexture.Create();
 
         _mainKernelIndex = _computeShader.FindKernel("CSMain");
-        _clearKernelIndex = _computeShader.FindKernel("Clear");
+        _evaporateKernelIndex = _computeShader.FindKernel("EvaporateTrail");
         _computeShader.SetTexture(_mainKernelIndex, "Result", _renderTexture);
-        _computeShader.SetTexture(_clearKernelIndex, "Result", _renderTexture);
+        _computeShader.SetTexture(_evaporateKernelIndex, "Result", _renderTexture);
         _outputRenderer.material.mainTexture = _renderTexture;
 
 
@@ -34,23 +34,24 @@ public class Simulation : MonoBehaviour
         {
             InitializeAgentsBuffer();
         }
+
         _computeShader.SetFloat("width", _width);
         _computeShader.SetFloat("height", _height);
-
-
     }
 
-    protected void Update()//todo: Fixed
+    protected void Update() //todo: Fixed
     {
-        _computeShader.Dispatch(_clearKernelIndex, _width, _height, _agents.Length);
+        _computeShader.SetFloat("deltaTime", Time.fixedDeltaTime);
+        _computeShader.SetFloat("time", Time.time);
+        _computeShader.SetFloat("speed", _agentsSpeed);
+        _computeShader.SetFloat("evaporationSpeed", _evaporationSpeed);
 
         for (int i = 0; i < _stepsPerFrame; i++)
         {
-            _computeShader.SetFloat("deltaTime", Time.fixedDeltaTime);
-            _computeShader.SetFloat("time", Time.time);
             _computeShader.Dispatch(_mainKernelIndex, _agents.Length, 1, 1);
         }
 
+        _computeShader.Dispatch(_evaporateKernelIndex, _width, _height, 1);
     }
 
     private void InitializeAgentsBuffer()
@@ -82,6 +83,9 @@ public class Simulation : MonoBehaviour
     private int _agentsCount = 25;
 
     [SerializeField]
+    private float _agentsSpeed = 1;
+
+    [SerializeField]
     private ComputeShader _computeShader;
 
     [SerializeField]
@@ -90,8 +94,11 @@ public class Simulation : MonoBehaviour
     [SerializeField]
     private RenderTexture _renderTexture;
 
+    [SerializeField]
+    private float _evaporationSpeed = 1;
+
     private int _mainKernelIndex;
-    private int _clearKernelIndex;
+    private int _evaporateKernelIndex;
     private readonly Random _random = new Random();
 
     private Agent[] _agents;
