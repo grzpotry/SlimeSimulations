@@ -23,6 +23,7 @@ float deltaTime;
 float time;
 float speed;
 float evaporationSpeed;
+float diffuseSpeed;
 
 float sensorAngle;
 int sensorWidth;
@@ -166,8 +167,7 @@ void UpdateSensors (uint3 id : SV_DispatchThreadID)
 [numthreads(8,8,1)]
 void EvaporateTrail (uint3 id : SV_DispatchThreadID)
 {
-   Result[id.xy] -= evaporationSpeed;
-   Result[id.xy] = max(Result[id.xy], 0);
+
 }
 
 #pragma kernel Clear
@@ -176,3 +176,38 @@ void Clear (uint3 id : SV_DispatchThreadID)
 {
     Result[id.xy] = float4(0,0,0,0);
 }
+
+#pragma kernel Blur
+
+[numthreads(8,8,1)]
+void Blur (uint3 id : SV_DispatchThreadID)
+{
+    if (id.x <=0 || id.x >= width -1 || id.y <=0 || id.y >= height - 1)
+    {
+        return;
+    }
+    float4 blurred = 0;
+
+    for (int x = -1; x <= 1; x++)
+    {
+        for (int y = -1; y <= 1; y++)
+        {
+            float2 coords = id.xy + float2(x,y);
+            if (coords.x >=0 && coords.x < width && coords.y >=0 && coords.y < height)
+            {
+                blurred+= Result[coords];
+            }
+        }
+    }
+
+    blurred = blurred / 9.0;
+
+
+
+    float4 diffused = lerp(Result[id.xy], blurred, deltaTime * diffuseSpeed);
+
+    diffused -= evaporationSpeed * deltaTime;
+    diffused = max(diffused, 0);
+    Result[id.xy] =diffused;
+}
+

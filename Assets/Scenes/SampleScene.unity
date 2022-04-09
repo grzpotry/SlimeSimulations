@@ -332,18 +332,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 17915bb6907001041a1181852ccbd5ab, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _width: 256
+  _width: 2560
   _stepsPerFrame: 10
-  _height: 256
-  _agentsCount: 100
-  _agentsSpeed: 5
+  _height: 1440
+  _agentsCount: 20000
+  _agentsSpeed: 100
   _computeShader: {fileID: 7200000, guid: f9f5cc8174d6a7d40a4f1fc323fe442c, type: 3}
   _outputRenderer: {fileID: 88625535}
   _renderTexture: {fileID: 0}
   _sensorAngle: 45
-  _sensorWidth: 2
-  _sensorOffsetDistance: 3
-  _evaporationSpeed: 0.005
+  _sensorWidth: 5
+  _sensorOffsetDistance: 5
+  _evaporationSpeed: 0.4
+  _diffuseSpeed: 5
+  _sensoryStage: 1
 --- !u!4 &1498356408
 Transform:
   m_ObjectHideFlags: 0
