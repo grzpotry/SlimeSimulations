@@ -24,10 +24,12 @@ float time;
 float speed;
 float evaporationSpeed;
 float diffuseSpeed;
+int agentsCount;
 
-float sensorAngle;
+float sensorAngleRad;
 int sensorWidth;
 float sensorOffsetDistance;
+float trailRate;
 
 static float pi = 3.1415;
 
@@ -70,9 +72,12 @@ float setByResultMultiplicationWhen(float currentValue, float when, float newVal
     return (1 + when * (newValue - 1)) / (1 + when * (currentValue - 1));
 }
 
-[numthreads(8,8,1)]
+[numthreads(16,1,1)]
 void UpdateMovement (uint3 id : SV_DispatchThreadID)
 {
+    if (id.x >= agentsCount) {
+        return;
+    }
     Agent agent = agents[id.x];
     float2 dir = float2(cos(agent.angleRad), sin(agent.angleRad));
     float2 newPos = agent.position + dir * speed * deltaTime;
@@ -95,7 +100,13 @@ void UpdateMovement (uint3 id : SV_DispatchThreadID)
 
     agent.position = newPos;
     agents[id.x] = agent;
-    Result[newPos] = 255;
+
+    //mark trail
+    if (newPos.x > 0 && newPos.x < width -1 && newPos.y > 0 && newPos.y < height - 1)
+    {
+        float4 prev = Result[newPos];
+        Result[newPos] = prev + trailRate * deltaTime;
+    }
 }
 
 #pragma kernel UpdateSensors
@@ -116,14 +127,17 @@ float CalculateSensorValue(float2 agentPos, float2 dir, float4 debugSensorColor)
     return sum;
 }
 
-[numthreads(8,8,1)]
+[numthreads(1,1,16)]
 void UpdateSensors (uint3 id : SV_DispatchThreadID)
 {
+    if (id.z >= agentsCount) {
+        return;
+    }
     Agent agent = agents[id.z];
 
     float2 forwardDir = float2(cos(agent.angleRad), sin(agent.angleRad));
-    float2 rightDir = float2(cos(agent.angleRad + sensorAngle), sin(agent.angleRad + sensorAngle));
-    float2 leftDir = float2(cos(agent.angleRad - sensorAngle), sin(agent.angleRad - sensorAngle));
+    float2 rightDir = float2(cos(agent.angleRad + sensorAngleRad), sin(agent.angleRad + sensorAngleRad));
+    float2 leftDir = float2(cos(agent.angleRad - sensorAngleRad), sin(agent.angleRad - sensorAngleRad));
 
     float forward = CalculateSensorValue(agent.position, normalize(forwardDir), float4(255, 0, 0, 255));
     float forwardR = CalculateSensorValue(agent.position, normalize(rightDir), float4(0, 255, 0, 255));
@@ -140,18 +154,18 @@ void UpdateSensors (uint3 id : SV_DispatchThreadID)
 
     if (forward < forwardL && forward < forwardR)
     {
-        float randomTurnAngle = random01 * sensorAngle * 2 - sensorAngle;
+        float randomTurnAngle = random01 * sensorAngleRad * 2 - sensorAngleRad;
         agent.angleRad += randomTurnAngle;
     }
     else if (forwardL < forwardR)
     {
-        float randomTurnAngle = random01 * sensorAngle;
-        agent.angleRad += randomTurnAngle;
-    }
-    else if (forwardR > forwardL)
-    {
-        float randomTurnAngle = random01 * sensorAngle;
+        float randomTurnAngle = random01 * sensorAngleRad;
         agent.angleRad -= randomTurnAngle;
+    }
+    else if (forwardR < forwardL)
+    {
+        float randomTurnAngle = random01 * sensorAngleRad;
+        agent.angleRad += randomTurnAngle;
     }
     else
     {
@@ -199,9 +213,13 @@ void Blur (uint3 id : SV_DispatchThreadID)
 
     blurred = blurred / 9.0;
 
-    float4 diffused = lerp(Result[id.xy], blurred, deltaTime * diffuseSpeed);
-    diffused = max(diffused, 0);
-    DiffusedTex[id.xy] =diffused;
+    float4 diffused = lerp(Result[id.xy] - evaporationSpeed * deltaTime, blurred, deltaTime * diffuseSpeed);//old
+
+    float diffuseWeight = saturate(diffuseSpeed * deltaTime);
+    diffused = Result[id.xy] * (1 - diffuseWeight) + blurred * (diffuseWeight);
+    diffused = max(diffused - evaporationSpeed * deltaTime, 0);
+
+    DiffusedTex[id.xy] = diffused;
 }
 
 #pragma kernel Evaporation

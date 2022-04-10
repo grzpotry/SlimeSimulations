@@ -332,20 +332,22 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 17915bb6907001041a1181852ccbd5ab, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _showRawTexture: 0
   _width: 2560
   _debugHeadingRayLength: 2
-  _stepsPerFrame: 10
+  _stepsPerFrame: 2
   _height: 1440
-  _agentsCount: 10000
-  _agentsSpeed: 10
+  _agentsCount: 1000000
+  _agentsSpeed: 70
   _computeShader: {fileID: 7200000, guid: f9f5cc8174d6a7d40a4f1fc323fe442c, type: 3}
   _outputRenderer: {fileID: 88625535}
   _rawTexture: {fileID: 0}
-  _sensorAngleDeg: 45
-  _sensorWidth: 5
-  _sensorOffsetDistance: 5
-  _evaporationSpeed: 0.4
-  _diffuseSpeed: 1
+  _sensorAngleDeg: 60
+  _sensorWidth: 2
+  _sensorOffsetDistance: 80
+  _evaporationSpeed: 0.2
+  _diffuseSpeed: 550
+  _trailWeight: 12
   _sensoryStage: 1
 --- !u!4 &1498356408
 Transform:

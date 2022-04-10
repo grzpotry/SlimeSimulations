@@ -27,31 +27,16 @@ public class Simulation : MonoBehaviour
         _diffusedTexture.enableRandomWrite = true;
         _diffusedTexture.Create();
 
-        _mainKernelIndex = _computeShader.FindKernel("UpdateMovement");
-        _computeShader.SetTexture(_mainKernelIndex, "Result", _rawTexture);
-
+        _movementKernelIndex = _computeShader.FindKernel("UpdateMovement");
         _senseKernelIndex = _computeShader.FindKernel("UpdateSensors");
-        _computeShader.SetTexture(_senseKernelIndex, "Result", _rawTexture);
-
         _clearKernelIndex = _computeShader.FindKernel("Clear");
-        _computeShader.SetTexture(_clearKernelIndex, "Result", _rawTexture);
-
         _blurKernelIndex = _computeShader.FindKernel("Blur");
-        _computeShader.SetTexture(_blurKernelIndex, "DiffusedTex", _diffusedTexture);
-        _computeShader.SetTexture(_blurKernelIndex, "Result", _rawTexture);
-
         _evaporationKernelIndex = _computeShader.FindKernel("Evaporation");
-        _computeShader.SetTexture(_evaporationKernelIndex, "Result", _rawTexture);
-
-        _outputRenderer.material.mainTexture = _diffusedTexture;
 
         if (_agents == null || _agents.Length != _agentsCount)
         {
             InitializeAgentsBuffer();
         }
-
-        _computeShader.SetFloat("width", _width);
-        _computeShader.SetFloat("height", _height);
 
         RunSimulation();
     }
@@ -60,42 +45,65 @@ public class Simulation : MonoBehaviour
     {
     }
 
-    protected void Update() //todo: Fixed
+    protected void FixedUpdate() //todo: Fixed
     {
         RunSimulation();
-        foreach (var agent in _agents)
-        {
-            var heading = new Vector2(Mathf.Cos(agent.AngleRad), Mathf.Sin(agent.AngleRad));
-            var end = agent.Position + heading * +_debugHeadingRayLength;
-            Debug.DrawLine(agent.Position, end, Color.red);
-        }
     }
 
     private void RunSimulation()
     {
+        _outputRenderer.material.mainTexture = _diffusedTexture;
+
+        if (_showRawTexture)
+        {
+            _outputRenderer.material.mainTexture = _rawTexture;
+        }
+        else
+        {
+            _outputRenderer.material.mainTexture = _diffusedTexture;
+        }
+
+        _computeShader.SetFloat("width", _width);
+        _computeShader.SetFloat("height", _height);
+        _computeShader.SetTexture(_movementKernelIndex, "Result", _rawTexture);
+        _computeShader.SetTexture(_senseKernelIndex, "Result", _rawTexture);
+        _computeShader.SetTexture(_clearKernelIndex, "Result", _rawTexture);
+        _computeShader.SetTexture(_blurKernelIndex, "DiffusedTex", _diffusedTexture);
+        _computeShader.SetTexture(_blurKernelIndex, "Result", _rawTexture);
+        _computeShader.SetTexture(_evaporationKernelIndex, "Result", _rawTexture);
         _computeShader.SetFloat("deltaTime", Time.fixedDeltaTime);
         _computeShader.SetFloat("time", Time.time);
         _computeShader.SetFloat("speed", _agentsSpeed);
         _computeShader.SetFloat("evaporationSpeed", _evaporationSpeed);
         _computeShader.SetInt("sensorWidth", _sensorWidth);
-        _computeShader.SetFloat("sensorAngle", _sensorAngleDeg * Mathf.Deg2Rad);
+        _computeShader.SetFloat("sensorAngleRad", _sensorAngleDeg * Mathf.Deg2Rad);
         _computeShader.SetFloat("sensorOffsetDistance", _sensorOffsetDistance);
         _computeShader.SetFloat("diffuseSpeed", _diffuseSpeed);
+        _computeShader.SetInt("agentsCount", _agents.Length);
+        _computeShader.SetFloat("trailRate", _trailWeight);
 
         // _computeShader.Dispatch(_clearKernelIndex, _width, _height, 1);
 
+        _computeShader.GetKernelThreadGroupSizes(_senseKernelIndex, out _, out _, out var z);
+        _computeShader.GetKernelThreadGroupSizes(_movementKernelIndex, out var x, out _, out _);
+
+        var groupsX =  Mathf.CeilToInt(_agents.Length / (float)x);
+        var groupsZ =  Mathf.CeilToInt(_agents.Length / (float)z);
+
         for (int i = 0; i < _stepsPerFrame; i++)
         {
-            _computeShader.Dispatch(_mainKernelIndex, _agents.Length, 1, 1);
+            _computeShader.Dispatch(_movementKernelIndex, groupsX, 1, 1);
 
             if (_sensoryStage)
             {
-                _computeShader.Dispatch(_senseKernelIndex, 1, 1, _agents.Length);
+                _computeShader.Dispatch(_senseKernelIndex, 1, 1, groupsZ);
             }
         }
 
         _computeShader.Dispatch(_evaporationKernelIndex, _width, _height, 1);
         _computeShader.Dispatch(_blurKernelIndex, _width, _height, 1);
+
+        Graphics.Blit(_diffusedTexture, _rawTexture);
     }
 
     private void InitializeAgentsBuffer()
@@ -115,9 +123,12 @@ public class Simulation : MonoBehaviour
 
         _buffer = new ComputeBuffer(_agents.Length, Agent.SizeOf);
         _buffer.SetData(_agents);
-        _computeShader.SetBuffer(_mainKernelIndex, "agents", _buffer);
+        _computeShader.SetBuffer(_movementKernelIndex, "agents", _buffer);
         _computeShader.SetBuffer(_senseKernelIndex, "agents", _buffer);
     }
+
+    [SerializeField]
+    private bool _showRawTexture = false;
 
     [SerializeField]
     private int _width = 256;
@@ -164,12 +175,15 @@ public class Simulation : MonoBehaviour
     private float _diffuseSpeed = 1;
 
     [SerializeField]
+    private float _trailWeight = 1;
+
+    [SerializeField]
     private bool _sensoryStage = true;
 
     private int _evaporationKernelIndex;
     private int _blurKernelIndex;
     private int _senseKernelIndex;
-    private int _mainKernelIndex;
+    private int _movementKernelIndex;
     private int _clearKernelIndex;
     private readonly Random _random = new Random();
 
