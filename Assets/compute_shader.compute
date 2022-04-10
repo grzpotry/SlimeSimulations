@@ -7,13 +7,13 @@ RWTexture2D<float4> Result;
 
 struct TrailSensor
 {
-    float angle;
+    float angleRad;
 };
 
 struct Agent
 {
     float2 position;
-    float angle;
+    float angleRad;
 };
 
 RWStructuredBuffer<Agent> agents;
@@ -74,7 +74,7 @@ float setByResultMultiplicationWhen(float currentValue, float when, float newVal
 void UpdateMovement (uint3 id : SV_DispatchThreadID)
 {
     Agent agent = agents[id.x];
-    float2 dir = float2(cos(agent.angle), sin(agent.angle));
+    float2 dir = float2(cos(agent.angleRad), sin(agent.angleRad));
     float2 newPos = agent.position + dir * speed * deltaTime;
 
 
@@ -83,11 +83,11 @@ void UpdateMovement (uint3 id : SV_DispatchThreadID)
     float random01 = scaleTo01(random);
     float randomAngle = random01 * 2 * pi;
 
-    //change to random angle when out of texture viewport without conditionals
-    agent.angle *= setByResultMultiplicationWhen(agent.angle, when_gt(newPos.x, width - 1), randomAngle);
-    agent.angle *= setByResultMultiplicationWhen(agent.angle, when_gt(newPos.y, height - 1), randomAngle);
-    agent.angle *= setByResultMultiplicationWhen(agent.angle, when_lt(newPos.x, 0), randomAngle);
-    agent.angle *= setByResultMultiplicationWhen(agent.angle, when_lt(newPos.y, 0), randomAngle);
+   // change to random angle when out of texture viewport without conditionals
+     agent.angleRad *= setByResultMultiplicationWhen(agent.angleRad, when_gt(newPos.x, width - 1), randomAngle);
+     agent.angleRad *= setByResultMultiplicationWhen(agent.angleRad, when_gt(newPos.y, height - 1), randomAngle);
+     agent.angleRad *= setByResultMultiplicationWhen(agent.angleRad, when_lt(newPos.x, 0), randomAngle);
+     agent.angleRad *= setByResultMultiplicationWhen(agent.angleRad, when_lt(newPos.y, 0), randomAngle);
 
     //clamp position
     newPos.x = min(width - 1, max(0, newPos.x));
@@ -121,9 +121,9 @@ void UpdateSensors (uint3 id : SV_DispatchThreadID)
 {
     Agent agent = agents[id.z];
 
-    float2 forwardDir = float2(cos(agent.angle), sin(agent.angle));
-    float2 rightDir = float2(cos(agent.angle + sensorAngle), sin(agent.angle + sensorAngle));
-    float2 leftDir = float2(cos(agent.angle - sensorAngle), sin(agent.angle - sensorAngle));
+    float2 forwardDir = float2(cos(agent.angleRad), sin(agent.angleRad));
+    float2 rightDir = float2(cos(agent.angleRad + sensorAngle), sin(agent.angleRad + sensorAngle));
+    float2 leftDir = float2(cos(agent.angleRad - sensorAngle), sin(agent.angleRad - sensorAngle));
 
     float forward = CalculateSensorValue(agent.position, normalize(forwardDir), float4(255, 0, 0, 255));
     float forwardR = CalculateSensorValue(agent.position, normalize(rightDir), float4(0, 255, 0, 255));
@@ -141,17 +141,17 @@ void UpdateSensors (uint3 id : SV_DispatchThreadID)
     if (forward < forwardL && forward < forwardR)
     {
         float randomTurnAngle = random01 * sensorAngle * 2 - sensorAngle;
-        agent.angle += randomTurnAngle;
+        agent.angleRad += randomTurnAngle;
     }
     else if (forwardL < forwardR)
     {
         float randomTurnAngle = random01 * sensorAngle;
-        agent.angle += randomTurnAngle;
+        agent.angleRad += randomTurnAngle;
     }
     else if (forwardR > forwardL)
     {
         float randomTurnAngle = random01 * sensorAngle;
-        agent.angle -= randomTurnAngle;
+        agent.angleRad -= randomTurnAngle;
     }
     else
     {
@@ -162,13 +162,6 @@ void UpdateSensors (uint3 id : SV_DispatchThreadID)
 }
 
 
-#pragma kernel EvaporateTrail
-
-[numthreads(8,8,1)]
-void EvaporateTrail (uint3 id : SV_DispatchThreadID)
-{
-
-}
 
 #pragma kernel Clear
 [numthreads(8,8,1)]
@@ -178,6 +171,10 @@ void Clear (uint3 id : SV_DispatchThreadID)
 }
 
 #pragma kernel Blur
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+RWTexture2D<float4> DiffusedTex;
 
 [numthreads(8,8,1)]
 void Blur (uint3 id : SV_DispatchThreadID)
@@ -202,12 +199,14 @@ void Blur (uint3 id : SV_DispatchThreadID)
 
     blurred = blurred / 9.0;
 
-
-
     float4 diffused = lerp(Result[id.xy], blurred, deltaTime * diffuseSpeed);
-
-    diffused -= evaporationSpeed * deltaTime;
     diffused = max(diffused, 0);
-    Result[id.xy] =diffused;
+    DiffusedTex[id.xy] =diffused;
 }
 
+#pragma kernel Evaporation
+[numthreads(8,8,1)]
+void Evaporation (uint3 id : SV_DispatchThreadID)
+{
+    Result[id.xy] -= evaporationSpeed * deltaTime;
+    }

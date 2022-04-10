@@ -333,18 +333,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _width: 2560
+  _debugHeadingRayLength: 2
   _stepsPerFrame: 10
   _height: 1440
-  _agentsCount: 20000
-  _agentsSpeed: 100
+  _agentsCount: 10000
+  _agentsSpeed: 10
   _computeShader: {fileID: 7200000, guid: f9f5cc8174d6a7d40a4f1fc323fe442c, type: 3}
   _outputRenderer: {fileID: 88625535}
-  _renderTexture: {fileID: 0}
-  _sensorAngle: 45
+  _rawTexture: {fileID: 0}
+  _sensorAngleDeg: 45
   _sensorWidth: 5
   _sensorOffsetDistance: 5
   _evaporationSpeed: 0.4
-  _diffuseSpeed: 5
+  _diffuseSpeed: 1
   _sensoryStage: 1
 --- !u!4 &1498356408
 Transform:
